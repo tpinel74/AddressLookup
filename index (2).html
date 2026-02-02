@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CA Membership Finder</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBreE7Ccp95zJ0hF3pmrn1U5l7RSictGl8&libraries=places"></script>
+
+  <style>
+    :root {
+      --green-dark:   #2d4a3e;
+      --green-mid:    #3d6b57;
+      --green-light:  #eef5f2;
+      --green-border: #c5ddd3;
+      --gold:         #c8a95e;
+      --warm-bg:      #f5f0e8;
+      --text-dark:    #1e2e26;
+      --text-mid:     #4a5a52;
+      --white:        #ffffff;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background-color: var(--warm-bg);
+      color: var(--text-dark);
+      line-height: 1.5;
+      padding: 40px 20px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .page-wrapper { width: 100%; max-width: 500px; }
+
+    header { text-align: center; margin-bottom: 32px; }
+    h1 { font-family: 'Playfair Display', serif; font-size: 2.2rem; color: var(--green-dark); margin-bottom: 8px; }
+    .subtitle { color: var(--text-mid); font-size: 1rem; }
+
+    /* Step Containers */
+    .step-card {
+      background: var(--white);
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+      margin-bottom: 24px;
+    }
+
+    .step-label {
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--gold);
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    /* Address Input */
+    #addressInput {
+      width: 100%;
+      padding: 16px;
+      border: 2px solid #eee;
+      border-radius: 12px;
+      font-size: 1rem;
+      margin-bottom: 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    #addressInput:focus { border-color: var(--green-dark); }
+
+    .btn-primary {
+      width: 100%;
+      padding: 16px;
+      background: var(--green-dark);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Verification Banner */
+    #statusBanner { display: none; margin-top: 20px; padding: 16px; border-radius: 12px; font-weight: 500; }
+    .status-resident { background: var(--green-light); color: var(--green-dark); border: 1px solid var(--green-border); }
+    .status-nonresident { background: #fff; border: 1px solid #ddd; color: var(--text-mid); }
+
+    /* Segmented Controls (Selectors) */
+    .selector-group { display: flex; gap: 8px; margin-bottom: 20px; }
+    .selector-item {
+      flex: 1;
+      text-align: center;
+      padding: 12px 8px;
+      border: 2px solid #eee;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: white;
+      transition: all 0.2s;
+    }
+    .selector-item.active {
+      border-color: var(--green-dark);
+      background: var(--green-light);
+      color: var(--green-dark);
+    }
+
+    /* Membership Cards */
+    .mem-card {
+      background: white;
+      border-radius: 16px;
+      border: 1px solid #eee;
+      padding: 24px;
+      margin-bottom: 16px;
+      position: relative;
+      transition: transform 0.2s;
+    }
+    .mem-card.featured { border: 2px solid var(--gold); }
+    .card-badge {
+      position: absolute; top: -12px; right: 20px;
+      background: var(--gold); color: white;
+      padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; font-weight: 700;
+    }
+    .card-title { font-family: 'Playfair Display', serif; font-size: 1.4rem; color: var(--green-dark); }
+    
+    .price-wrap { margin: 16px 0; }
+    .current-price { font-size: 2rem; font-weight: 700; color: var(--green-dark); }
+    .current-price span { font-size: 1rem; color: var(--text-light); }
+    .old-price { text-decoration: line-through; color: #a0a0a0; font-size: 1rem; margin-left: 8px; }
+
+    .savings-pill {
+      display: inline-block;
+      background: #e6f4ea; color: #1e7e34;
+      padding: 4px 10px; border-radius: 6px;
+      font-size: 0.8rem; font-weight: 600; margin-top: 8px;
+    }
+
+    .features-list { list-style: none; margin-top: 16px; }
+    .features-list li { font-size: 0.85rem; color: var(--text-mid); margin-bottom: 6px; padding-left: 20px; position: relative; }
+    .features-list li::before { content: '✓'; position: absolute; left: 0; color: var(--green-dark); font-weight: bold; }
+
+    #selectionSection { display: none; }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+  <header>
+    <h1>Find Your Membership</h1>
+    <p class="subtitle">Enter your address to unlock your rates.</p>
+  </header>
+
+  <div class="step-card">
+    <span class="step-label">Step 1: Verify Residency</span>
+    <input type="text" id="addressInput" placeholder="Enter your home address..." autocomplete="off">
+    <button id="confirmBtn" class="btn-primary" disabled>Confirm Address</button>
+    
+    <div id="statusBanner"></div>
+  </div>
+
+  <div id="selectionSection">
+    <div class="step-card">
+      <span class="step-label">Step 2: Who is joining?</span>
+      <div class="selector-group" id="sizeSelector">
+        <div class="selector-item active" data-size="individual">Individual</div>
+        <div class="selector-item" data-size="twoMember">Two Member</div>
+        <div class="selector-item" data-size="family">Family</div>
+      </div>
+
+      <span class="step-label">Step 3: What is your vibe?</span>
+      <div class="selector-group" id="typeSelector">
+        <div class="selector-item active" data-type="play">Play</div>
+        <div class="selector-item" data-type="fit">Fitness</div>
+        <div class="selector-item" data-type="golf">Golf</div>
+      </div>
+    </div>
+
+    <div id="membershipResults"></div>
+  </div>
+</div>
+
+<script>
+/**
+ * DATA STRUCTURE
+ * Updated with 2026 pricing for Resident vs Non-Resident
+ */
+const MEMBERSHIPS = [
+  {
+    id: 'play',
+    category: 'play',
+    title: 'Play Membership',
+    features: ['23 Outdoor Pools', 'Swim Center & SplashDown', 'Ice Rink', 'Tennis & Pickleball', 'SportsPark Mini-Golf'],
+    prices: {
+      resident: { individual: 27, twoMember: 33, family: 39 },
+      nonResident: { individual: 61, twoMember: 76, family: 78 }
+    }
+  },
+  {
+    id: 'fitplay',
+    category: 'fit',
+    title: 'Fit & Play',
+    featured: true,
+    badge: 'Best Value',
+    features: ['Access to all 3 Fitness Clubs', 'All Play Membership benefits', 'Group Fitness Classes', 'KidSpace Included'],
+    prices: {
+      resident: { individual: 87, twoMember: 115, family: 122 },
+      nonResident: { individual: 111, twoMember: 174, family: 198 }
+    }
+  },
+  {
+    id: '1fit',
+    category: 'fit',
+    title: '1Fit',
+    features: ['Access to 1 Fitness Club of choice', 'Group Fitness Classes', 'Sauna & Hot Tub', 'Indoor Basketball'],
+    prices: {
+      resident: { individual: 68, twoMember: 86, family: 91 },
+      nonResident: { individual: 89, twoMember: 131, family: 153 }
+    }
+  },
+  {
+    id: 'golf',
+    category: 'golf',
+    title: 'Golf Fit & Play',
+    badge: 'Elite',
+    features: ['Unlimited Green Fees (2 Courses)', 'All Fit & Play benefits', '8-day Advance Tee Times', 'Handicap Fees Included'],
+    prices: {
+      resident: { individual: 353, twoMember: 430, family: 430 },
+      nonResident: { individual: 460, twoMember: 567, family: 567 }
+    }
+  }
+];
+
+let state = {
+  isResident: false,
+  village: '',
+  selectedSize: 'individual',
+  selectedType: 'play'
+};
+
+// UI Elements
+const input = document.getElementById('addressInput');
+const btn = document.getElementById('confirmBtn');
+const banner = document.getElementById('statusBanner');
+const resultsArea = document.getElementById('membershipResults');
+
+// Initialize Google
+function waitForGoogle() {
+  if (window.google && window.google.maps) {
+    const auto = new google.maps.places.Autocomplete(input, {
+      componentRestrictions: { country: 'US' },
+      fields: ['formatted_address'],
+      types: ['address']
+    });
+    auto.addListener('place_changed', () => {
+      btn.disabled = !input.value;
+    });
+  } else { setTimeout(waitForGoogle, 200); }
+}
+waitForGoogle();
+
+// Handle Selection Buttons
+document.querySelectorAll('.selector-item').forEach(item => {
+  item.addEventListener('click', (e) => {
+    const parent = e.target.parentElement;
+    parent.querySelectorAll('.selector-item').forEach(i => i.classList.remove('active'));
+    e.target.classList.add('active');
+
+    if (parent.id === 'sizeSelector') state.selectedSize = e.target.dataset.size;
+    if (parent.id === 'typeSelector') state.selectedType = e.target.dataset.type;
+    
+    renderCards();
+  });
+});
+
+// Confirm Address
+btn.onclick = async () => {
+  btn.disabled = true;
+  btn.innerText = "Checking...";
+  
+  try {
+    const res = await fetch('/api/check-address', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: input.value })
+    });
+    const data = await res.json();
+    
+    state.isResident = data.matched;
+    state.village = data.village;
+
+    // Show Banner
+    banner.style.display = 'block';
+    if(state.isResident) {
+      banner.className = 'status-resident';
+      banner.innerHTML = `<strong>✅ Verified!</strong> You qualify for Resident Rates in the Village of ${state.village}.`;
+    } else {
+      banner.className = 'status-nonresident';
+      banner.innerHTML = `<strong>Welcome!</strong> Your address qualifies for our standard membership plans.`;
+    }
+
+    document.getElementById('selectionSection').style.display = 'block';
+    renderCards();
+  } catch (e) {
+    alert("Database connection error.");
+  } finally {
+    btn.disabled = false;
+    btn.innerText = "Confirm Address";
+  }
+};
+
+function renderCards() {
+  const filtered = MEMBERSHIPS.filter(m => m.category === state.selectedType);
+  resultsArea.innerHTML = filtered.map(m => {
+    const resPrice = m.prices.resident[state.selectedSize];
+    const nonPrice = m.prices.nonResident[state.selectedSize];
+    const displayPrice = state.isResident ? resPrice : nonPrice;
+    const savings = Math.round(((nonPrice - resPrice) / nonPrice) * 100);
+
+    return `
+      <div class="mem-card ${m.featured ? 'featured' : ''}">
+        ${m.badge ? `<div class="card-badge">${m.badge}</div>` : ''}
+        <div class="card-title">${m.title}</div>
+        
+        <div class="price-wrap">
+          <span class="current-price">$${displayPrice}<span>/mo</span></span>
+          ${state.isResident ? `<span class="old-price">$${nonPrice}</span>` : ''}
+          ${state.isResident ? `<br><div class="savings-pill">You save ${savings}% as a resident</div>` : ''}
+        </div>
+
+        <ul class="features-list">
+          ${m.features.map(f => `<li>${f}</li>`).join('')}
+        </ul>
+        
+        <button class="btn-primary" style="margin-top:20px">Select Plan</button>
+      </div>
+    `;
+  }).join('');
+}
+</script>
+</body>
+</html>
